@@ -27,11 +27,48 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
 # %%
-# dummy
-def load_gesture_data():
-    data = np.random.randn(100, 21, 2)  
-    labels = np.random.randint(0, 3, 100)  
-    return torch.tensor(data, dtype=torch.float32), torch.tensor(labels, dtype=torch.long)
+# from https://www.kaggle.com/datasets/aryarishabh/hand-gesture-recognition-dataset
+
+def load_gesture_data(data_dir, batch_size=900, image_size=(50, 50)):
+    """
+    Load image data from a directory, applying necessary transforms.
+    Args:
+    - data_dir: the path to the data directory.
+    - batch_size: number of samples per batch.
+    - image_size: size to resize the images.
+
+    Returns:
+    - DataLoader for training and validation sets.
+    """
+    
+    # Define the transformations for the training and validation data
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.RandomHorizontalFlip(),  # Augmentation for training data
+            transforms.ToTensor(),  # Convert images to PyTorch tensors
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # Normalize with mean and std dev
+        ]),
+        'val': transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+    }
+
+    # Load datasets using ImageFolder (it automatically assigns labels based on folder names)
+    image_datasets = {
+        'train': datasets.ImageFolder(root=f"../data/archive/train", transform=data_transforms['train']),
+        'val': datasets.ImageFolder(root=f"../data/archive/test", transform=data_transforms['val'])
+    }
+
+    # Create data loaders
+    dataloaders = {
+        'train': DataLoader(image_datasets['train'], batch_size=batch_size, shuffle=True),
+        'val': DataLoader(image_datasets['val'], batch_size=batch_size, shuffle=False)
+    }
+
+    return dataloaders
 
 # %%
 # Training loop
