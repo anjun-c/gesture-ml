@@ -8,26 +8,113 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 # %%
+import cv2
+import mediapipe as mp
+import os
+import csv
+
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+
+hands_instance = mp_hands.Hands(static_image_mode=True, max_num_hands=1, min_detection_confidence=0.5)
+
+# %%
+def extract_landmarks_from_image(image, hands_instance):
+    """
+    Extract landmarks from the given image using MediaPipe.
+    Args:
+        image: The input image.
+        hands_instance: An instance of MediaPipe Hands solution.
+
+    Returns:
+        A flattened list of landmarks (x, y coordinates) or None if no hands detected.
+    """
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    results = hands_instance.process(rgb_image)
+
+    if results.multi_hand_landmarks:
+        hand_landmarks = results.multi_hand_landmarks[0]
+        landmarks = [lm.x for lm in hand_landmarks.landmark] + [lm.y for lm in hand_landmarks.landmark]
+        return landmarks
+    return None
+
+# %%
+from torchvision import datasets, transforms
+
+# Define the paths
+dataset_path = "../data/archive/train"  # Path to the existing dataset
+output_csv_path = "landmarks_dataset.csv"
+
+# Load the dataset using ImageFolder
+dataset = datasets.ImageFolder(root=dataset_path, transform=transforms.ToTensor())
+
+# Open CSV file to write landmarks data
+with open(output_csv_path, mode='w', newline='') as csv_file:
+    csv_writer = csv.writer(csv_file)
+    # Write header: landmarks (42 values) + label
+    header = [f'lm_{i}' for i in range(42)] + ['label']
+    csv_writer.writerow(header)
+
+    # Iterate over the dataset to extract landmarks and write to CSV
+    for i, (img, label) in enumerate(dataset):
+        # Convert the PIL image to OpenCV format
+        img = transforms.ToPILImage()(img)  # Convert tensor to PIL image
+        img = np.array(img)  # Convert PIL image to NumPy array (OpenCV format)
+
+        # Extract landmarks
+        landmarks = extract_landmarks_from_image(img, hands_instance)
+
+        if landmarks is not None:
+            # Append the label to landmarks
+            row = landmarks + [label]
+            csv_writer.writerow(row)
+
+        if i % 100 == 0:
+            print(f"Processed {i} images")
+
+print("Finished extracting landmarks from dataset.")
+
+# %%
+import pandas as pd
+from torch.utils.data import Dataset
+
+class GestureLandmarkDataset(Dataset):
+    def __init__(self, csv_file):
+        self.data = pd.read_csv(csv_file)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        row = self.data.iloc[idx]
+        landmarks = row[:-1].values.astype(np.float32)
+        label = int(row[-1])
+        return torch.tensor(landmarks), torch.tensor(label)
+
+# Load dataset
+landmark_dataset = GestureLandmarkDataset("landmarks_dataset.csv")
+
+# %%
 # Define the CNN model
 num_classes = 20
 
 class GestureRecognitionModel(nn.Module):
     def __init__(self):
         super(GestureRecognitionModel, self).__init__()
-        self.fc1 = nn.Linear(7500, 128)
-        self.dropout1 = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(42, 128)  # 21 landmarks * 2 (x and y)
         self.fc2 = nn.Linear(128, 64)
-        self.dropout2 = nn.Dropout(0.5)
         self.fc3 = nn.Linear(64, num_classes)
-    
+        self.dropout1 = nn.Dropout(0.5)
+        self.dropout2 = nn.Dropout(0.5)
+
     def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
         x = torch.relu(self.fc1(x))
         x = self.dropout1(x)
         x = torch.relu(self.fc2(x))
         x = self.dropout2(x)
         x = self.fc3(x)
         return x
+
 
 # %%
 model = GestureRecognitionModel()
