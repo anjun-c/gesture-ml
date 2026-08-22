@@ -33,8 +33,8 @@ class GestureLandmarkDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
-        landmarks = row[:-1].values.astype(np.float32)
-        label = int(row[-1])
+        landmarks = row.iloc[:-1].values.astype(np.float32)
+        label = int(row.iloc[-1])
         return torch.tensor(landmarks), torch.tensor(label)
 
 
