@@ -1,0 +1,8 @@
+opencv-python
+mediapipe
+filterpy
+numpy
+pandas
+torch
+torchvision
+pywin32; platform_system == "Windows"
