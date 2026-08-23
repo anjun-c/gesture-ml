@@ -2,15 +2,15 @@
 Shared test setup.
 
 This project depends on hardware/vendor SDKs that either can't run in CI
-(mediapipe's real hand-tracking model, filterpy's Kalman filter is fine but
-optional, and win32api/win32con which are Windows-only and cannot exist on
-this platform at all). Where the real package isn't installed, we install a
-minimal stand-in into sys.modules *before* the project modules are imported,
-so import-time `import mediapipe` / `import win32api` doesn't crash test
-collection. These stubs are only for import safety and control-flow tests
-(e.g. "did the debounced action get called") — they do not simulate real
-hand detection or real OS key events, which can only be verified on an
-actual machine with a webcam (see tests' module docstrings / README).
+(mediapipe's real hand-tracking model, and win32api/win32con which are
+Windows-only and cannot exist on this platform at all). Where the real
+package isn't installed, we install a minimal stand-in into sys.modules
+*before* the project modules are imported, so import-time `import mediapipe`
+/ `import win32api` doesn't crash test collection. These stubs are only for
+import safety and control-flow tests (e.g. "did the debounced action get
+called") — they do not simulate real hand detection or real OS key events,
+which can only be verified on an actual machine with a webcam (see tests'
+module docstrings / README).
 """
 import os
 import sys
@@ -41,32 +41,6 @@ except ImportError:
     drawing_mod = _install_stub("mediapipe.solutions.drawing_utils", draw_landmarks=lambda *a, **k: None)
     solutions_mod = _install_stub("mediapipe.solutions", hands=hands_mod, drawing_utils=drawing_mod)
     _install_stub("mediapipe", solutions=solutions_mod)
-
-try:
-    import filterpy.kalman  # noqa: F401
-except ImportError:
-    import numpy as np
-
-    class _FakeKalmanFilter:
-        """Mirrors filterpy.kalman.KalmanFilter's default attribute shapes (identity P/F, zero x/H)."""
-
-        def __init__(self, dim_x=0, dim_z=0):
-            self.dim_x = dim_x
-            self.dim_z = dim_z
-            self.x = np.zeros(dim_x)
-            self.F = np.eye(dim_x)
-            self.H = np.zeros((dim_z, dim_x))
-            self.P = np.eye(dim_x)
-            self.R = np.eye(dim_z)
-
-        def predict(self):
-            pass
-
-        def update(self, _z):
-            pass
-
-    kalman_mod = _install_stub("filterpy.kalman", KalmanFilter=_FakeKalmanFilter)
-    _install_stub("filterpy", kalman=kalman_mod)
 
 try:
     import win32api  # noqa: F401

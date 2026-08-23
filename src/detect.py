@@ -9,9 +9,9 @@ import time
 import cv2
 import mediapipe as mp
 import numpy as np
-from filterpy.kalman import KalmanFilter
 
 from capture import initialize_webcam, display_frame, capture_video, release_resources
+from kalman import KalmanFilter
 from model import DEFAULT_MODEL_PATH, load_model, gesture_recognition_integration
 import win_control
 
